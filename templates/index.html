@@ -3,220 +3,550 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Week 5 – LLM chat (CI/CD)</title>
+  <title>Week 5: a language model on my own server</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Red+Hat+Mono:wght@400;500&family=Red+Hat+Text:ital,wght@0,400;0,500;0,700;1,400&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <!-- data-base = the sub-path (e.g. /viikko5) that app.js uses for API calls -->
 <body data-base="{{ request.script_root }}">
   <div class="asettelu">
     <aside class="sivupalkki">
-      <img src="{{ url_for('static', filename='gifs/Tyyli.gif') }}" alt="Tyyli">
+      <img src="{{ url_for('static', filename='gifs/empl.gif') }}" alt="">
     </aside>
 
     <main class="sisalto">
-      <h1>Week 5: Gigachad learns to talk</h1>
-      <p class="muted">A self-hosted language model · Nginx → Gunicorn/Flask → Ollama · MySQL · deployed by CI/CD</p>
+      <header class="alku">
+        <h1>Week 5: Gigachad learns to talk</h1>
+        <p class="ingressi">
+          A chat with a language model that runs on this server. No cloud API:
+          <code>{{ model }}</code> runs in Ollama on nuuttilinux, the conversation is saved in MySQL,
+          and every push to <code>main</code> is tested and deployed by GitHub Actions.
+        </p>
+        <p class="versio">This page is running commit <span id="commit">…</span>.</p>
+      </header>
 
-      <div class="merkit">
-        <span class="merkki malli">Model: {{ model }}</span>
-        <span class="merkki live">Self-hosted</span>
-        <span class="merkki info">CI/CD</span>
-      </div>
-
-      <img class="levea" src="{{ url_for('static', filename='gifs/steamhappy.gif') }}" alt="steamhappy">
-
-      <!-- 1. Chat -->
-      <h2><span class="nro">01</span> Talk to it</h2>
+      <img class="levea" src="{{ url_for('static', filename='gifs/sins.gif') }}" alt="sins" loading="lazy">
 
       <div class="chat">
-        <header class="chat__header">
-          <div class="chat__otsikko">
-            <span class="valo" aria-hidden="true"></span>
-            <div>
-              <p class="chat__nimi">LLM chat</p>
-              <p class="chat__meta">Model: <code>{{ model }}</code> · Nginx → Gunicorn/Flask → Ollama · MySQL</p>
-            </div>
-          </div>
-          <button type="button" id="new-chat" class="btn btn--ghost">New chat</button>
-        </header>
+        <div class="chat__yla">
+          <p class="chat__otsikko"><span class="chat__malli">{{ model }}</span> on nuuttilinux</p>
+          <p class="chat__sessio">session <code id="sessio">…</code></p>
+          <button type="button" id="new-chat" class="nappi nappi--toissijainen">New chat</button>
+        </div>
 
-        <section id="messages" class="chat__messages" aria-live="polite">
-          <p class="chat__empty" id="empty-hint">Type a message below to start the conversation.</p>
+        <section id="messages" class="chat__messages" aria-live="polite" style="--malli: '{{ model }}'">
+          <p class="chat__empty" id="empty-hint">No messages yet. Ask something below, in English or in Finnish. The first reply after a pause can take about 20 seconds while the model loads.</p>
         </section>
 
         <div class="ehdotukset" id="ehdotukset">
-          <span class="ehdotukset__otsake">Try</span>
-          <button type="button" class="ehdotus">Explain MySQL replication like I'm five</button>
-          <button type="button" class="ehdotus">Write a cron line that runs every hour at :15</button>
-          <button type="button" class="ehdotus">Gigachad or Ryan Gosling, who wins?</button>
-          <button type="button" class="ehdotus">Tell me a Linux joke</button>
+          <span>Try:</span>
+          <button type="button" class="ehdotus">Should I drink today?</button>
+          <button type="button" class="ehdotus">Is Atlas Toby true OPSEC</button>
+          <button type="button" class="ehdotus">Tell me a true sigma male morning routine</button>
+          <button type="button" class="ehdotus">Make me million dollars, make no mistakes!</button>
+          <button type="button" class="ehdotus">Write me Hello World in C</button>
         </div>
 
         <form id="chat-form" class="chat__form" autocomplete="off">
-          <textarea id="message" name="message" rows="2" maxlength="2000"
-                    placeholder="Type a message… (Enter sends, Shift+Enter adds a new line)" required></textarea>
-          <button type="submit" id="send" class="btn">Send</button>
+          <label for="message" class="kehote" aria-hidden="true">&gt;</label>
+          <textarea id="message" name="message" rows="1" maxlength="200"
+                    placeholder="Message {{ model }}" aria-label="Message" required></textarea>
+          <button type="submit" id="send" class="nappi">Send</button>
         </form>
 
         <div class="chat__ala">
-          <span><kbd>Enter</kbd> send · <kbd>Shift</kbd> + <kbd>Enter</kbd> new line</span>
-          <span id="merkkimaara">0 / 2000</span>
-        </div>
-      </div>
-
-      <div class="ruudut">
-        <div class="ruutu">
-          <div class="otsake">Model</div>
-          <div class="arvo malli">{{ model }}</div>
-        </div>
-        <div class="ruutu">
-          <div class="otsake">Inference</div>
-          <div class="arvo hyva">Local · Ollama</div>
-        </div>
-        <div class="ruutu">
-          <div class="otsake">Max message</div>
-          <div class="arvo">2000 chars</div>
-        </div>
-        <div class="ruutu">
-          <div class="otsake">History</div>
-          <div class="arvo">MySQL</div>
+          <span><kbd>Enter</kbd> sends, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a line</span>
+          <span id="merkkimaara">0/200</span>
         </div>
       </div>
 
       <img class="levea" src="{{ url_for('static', filename='gifs/chatgpt.gif') }}" alt="chatgpt" loading="lazy">
 
-      <!-- 2. Request flow -->
-      <h2><span class="nro">02</span> How a message travels</h2>
+      <nav class="sisallys" aria-labelledby="sisallys-otsikko">
+        <h2 id="sisallys-otsikko">Documentation</h2>
+        <p>This page is also my week 5 report.
+          Code: <a href="https://github.com/Astrlol/Linuxkurssi-chat">github.com/Astrlol/Linuxkurssi-chat</a>.
+          Pipeline runs: <a href="https://github.com/Astrlol/Linuxkurssi-chat/actions">Actions tab</a>.
+          Running version: <a href="{{ request.script_root }}/health">{{ request.script_root }}/health</a>.</p>
+        <ul>
+          <li><a href="#polku">How a message travels</a></li>
+          <li><a href="#putki">The pipeline</a></li>
+          <li><a href="#kayttajat">Who can do what</a></li>
+          <li><a href="#nginx">Adding /viikko5/ to Nginx</a></li>
+          <li><a href="#malli">Picking the model</a></li>
+          <li><a href="#tietokanta">Database and replication</a></li>
+          <li><a href="#testit">Test results</a></li>
+          <li><a href="#todisteet">Evidence from the server</a></li>
+          <li><a href="#ongelma">Problem I solved</a></li>
+        </ul>
+      </nav>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/yesking.gif') }}" alt="yesking" loading="lazy">
+
+      <!-- ================================================================== -->
+      <h2 id="polku">How a message travels</h2>
       <section>
-        <!-- TODO: tarkista että kuvaukset vastaavat omaa palvelintasi -->
-        <div class="virta">
-          <div class="solmu s-selain">
-            <div class="nimi">Browser</div>
-            <p><code>app.js</code> sends your message with <code>fetch()</code></p>
+        <p class="johdanto">Only Nginx is open to the internet. Click a step to see where the message is.</p>
+
+        <div class="kaavio" id="kaavio">
+          <div class="solmu" data-osa="selain"><b>Browser</b><span>app.js</span></div>
+          <div class="nuoli" data-osa="a1"><span>HTTP :80</span></div>
+          <div class="solmu" data-osa="nginx"><b>Nginx</b><span>public</span></div>
+          <div class="nuoli" data-osa="a2"><span>unix socket</span></div>
+          <div class="solmu" data-osa="flask"><b>Gunicorn + Flask</b><span>user chatapp</span></div>
+          <div class="nuoli" data-osa="a3"><span>:11434</span></div>
+          <div class="solmu" data-osa="ollama"><b>Ollama</b><span>{{ model }}</span></div>
+          <div class="nuoli nuoli--alas" data-osa="a4"><span>:3306</span></div>
+          <div class="solmu" data-osa="mysql"><b>MySQL 8.4</b><span>database chatapp</span></div>
+        </div>
+
+        <ol class="reitti" id="reitti">
+          <li><button type="button" data-osat="selain a1 nginx">You press Send. <code>app.js</code> posts the text and your session id to <code>/viikko5/api/chat</code>.</button></li>
+          <li><button type="button" data-osat="nginx a2 flask">Nginx cuts off <code>/viikko5</code>, tells Flask about it in <code>X-Forwarded-Prefix</code> and passes the request through the socket.</button></li>
+          <li><button type="button" data-osat="flask a4 mysql">Flask reads the last 10 messages of your session and saves the new one.</button></li>
+          <li><button type="button" data-osat="flask a3 ollama">The whole conversation goes to Ollama, which writes the reply one token at a time.</button></li>
+          <li><button type="button" data-osat="ollama a3 flask a2 nginx a1 selain">Every token goes straight back to your screen. <code>proxy_buffering off</code> keeps Nginx from collecting the whole reply first.</button></li>
+          <li><button type="button" data-osat="flask a4 mysql">The finished reply is saved too. On reload the page asks <code>/api/history</code> for your session. A private window gets a new session id, so it starts empty.</button></li>
+        </ol>
+      </section>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/same.gif') }}" alt="jump" loading="lazy">
+
+      <!-- ================================================================== -->
+      <h2 id="putki">The pipeline</h2>
+      <section>
+        <p class="johdanto">One workflow file,
+          <a href="https://github.com/Astrlol/Linuxkurssi-chat/blob/main/.github/workflows/ci-cd.yml"><code>ci-cd.yml</code></a>,
+          with two jobs. <code>deploy</code> has <code>needs: test</code>, so a failing test stops everything.</p>
+
+        <table class="matriisi">
+          <tr><th></th><th>Lint and tests</th><th>Deploy</th></tr>
+          <tr><td>Push to any branch</td><td><span class="ok">✓</span></td><td><span class="ei">–</span></td></tr>
+          <tr><td>Pull request</td><td><span class="ok">✓</span></td><td><span class="ei">–</span></td></tr>
+          <tr><td>Push to <code>main</code></td><td><span class="ok">✓</span></td><td><span class="ok">✓</span> if the tests passed</td></tr>
+        </table>
+
+        <h3>Two real runs side by side</h3>
+        <div class="ajot">
+          <div class="ajo ajo--ok">
+            <p class="ajo__otsikko"><a href="https://github.com/Astrlol/Linuxkurssi-chat/actions/runs/45951788620">Run #4</a> <code>b5858b4</code> <span class="lappu pass">success</span></p>
+            <p class="ajo__viesti">The revert of the broken commit</p>
+            <ul class="jobit">
+              <li class="ok"><span class="tila">✓</span> Lint and tests <span class="aika">14 s</span>
+                <span class="askeleet-pienet">ruff, pytest (12 passed), bash -n</span></li>
+              <li class="ok"><span class="tila">✓</span> Deploy to cPouta <span class="aika">22 s</span>
+                <span class="askeleet-pienet">SSH key, rsync, deploy.sh, smoke test</span></li>
+            </ul>
           </div>
-          <div class="virta__nuoli n1"><span class="nuoli">→</span>HTTP :80</div>
-          <div class="solmu s-nginx">
-            <div class="nimi">Nginx</div>
-            <p>Public entry. Proxies <code>/viikko5/</code> to Gunicorn</p>
-          </div>
-          <div class="virta__nuoli n2"><span class="nuoli">→</span>proxy</div>
-          <div class="solmu s-flask">
-            <div class="nimi">Gunicorn + Flask</div>
-            <p>Builds the prompt from the conversation and calls the model</p>
-          </div>
-          <div class="virta__nuoli n3"><span class="nuoli">→</span>API</div>
-          <div class="solmu s-ollama">
-            <div class="nimi">Ollama</div>
-            <p>Runs <code>{{ model }}</code> on this server, not open to the internet</p>
-          </div>
-          <div class="virta__nuoli n4"><span class="nuoli pysty">↕</span>history</div>
-          <div class="solmu s-mysql">
-            <div class="nimi">MySQL</div>
-            <p>Stores the conversation, so it survives a reload</p>
+          <div class="ajo ajo--fail">
+            <p class="ajo__otsikko"><a href="https://github.com/Astrlol/Linuxkurssi-chat/actions/runs/45951605968">Run #3</a> <code>6ecc18f</code> <span class="lappu fail">failure</span></p>
+            <p class="ajo__viesti">Empty message check removed on purpose</p>
+            <ul class="jobit">
+              <li class="fail"><span class="tila">✗</span> Lint and tests <span class="aika">13 s</span>
+                <span class="askeleet-pienet">test_chat_rejects_missing_message: expected 400, got 200</span></li>
+              <li class="skip"><span class="tila">–</span> Deploy to cPouta <span class="aika">skipped</span>
+                <span class="askeleet-pienet">the server kept the old version</span></li>
+            </ul>
           </div>
         </div>
 
+        <h3>What deploy.sh does on the server</h3>
+        <ol class="skripti">
+          <li><span>Install the Python packages into the venv</span><code>pip install -r requirements.txt</code></li>
+          <li><span>Remember which commit this is</span><code>echo $SHA &gt; REVISION</code></li>
+          <li><span>Create the table if it is missing</span><code>mysql chatapp &lt; schema.sql</code></li>
+          <li><span>New Nginx snippet, old one back if the test fails</span><code>nginx -t || mv .bak</code></li>
+          <li><span>Install the unit and restart only the chat</span><code>systemctl restart chatapp</code></li>
+          <li><span>Ask the socket which version is running</span><code>/health == $SHA</code></li>
+        </ol>
+        <p class="pieni">The runner then checks the same <code>/viikko5/health</code> from the public address, plus the chat form and <code>app.js</code>. <code>rsync</code> skips <code>REVISION</code> and <code>static/gifs</code>, so they survive every deploy.</p>
+      </section>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/mfate.gif') }}" alt="mfate" loading="lazy">
+
+      <!-- ================================================================== -->
+      <h2 id="kayttajat">Who can do what</h2>
+      <section>
+        <p class="johdanto">The chat runs as <code>chatapp</code>, a system user that cannot log in and cannot change its own code.</p>
+
+        <div class="taulukko-rulla">
+          <table class="oikeudet">
+            <tr>
+              <th></th>
+              <th><code>chatapp</code><small>runs the app</small></th>
+              <th><code>ubuntu</code><small>deploys</small></th>
+              <th><code>www-data</code><small>Nginx</small></th>
+            </tr>
+            <tr>
+              <td>App code<small><code>/opt/chatapp/app</code>, 755/644</small></td>
+              <td><span class="oik r">read</span></td>
+              <td><span class="oik w">write</span></td>
+              <td><span class="oik r">read static</span></td>
+            </tr>
+            <tr>
+              <td>Env file with the DB password<small><code>/etc/chatapp/chatapp.env</code>, root 600</small></td>
+              <td><span class="oik x">no</span><small>systemd hands over the values</small></td>
+              <td><span class="oik x">no</span><small>only with sudo</small></td>
+              <td><span class="oik x">no</span></td>
+            </tr>
+            <tr>
+              <td>Gunicorn socket<small><code>/run/chatapp/gunicorn.sock</code>, 770</small></td>
+              <td><span class="oik w">owner</span></td>
+              <td><span class="oik x">no</span></td>
+              <td><span class="oik r">connect</span><small>group chatapp</small></td>
+            </tr>
+            <tr>
+              <td>Database <code>chatapp</code><small>MySQL user <code>'chatapp'@'localhost'</code></small></td>
+              <td><span class="oik r">SELECT, INSERT</span></td>
+              <td><span class="oik w">schema via sudo</span></td>
+              <td><span class="oik x">no</span></td>
+            </tr>
+            <tr>
+              <td>Login and sudo</td>
+              <td><span class="oik x">nologin</span></td>
+              <td><span class="oik w">SSH key, sudo</span></td>
+              <td><span class="oik x">no</span></td>
+            </tr>
+          </table>
+        </div>
+
+        <h3>Where the secrets are</h3>
+        <div class="kolmikko">
+          <div>
+            <p class="kolmikko__otsikko">GitHub secrets</p>
+            <p><code>CPOUTA_HOST</code><br><code>CPOUTA_USER</code><br><code>CPOUTA_SSH_KEY</code><br><code>CPOUTA_KNOWN_HOSTS</code></p>
+            <p class="pieni">The SSH key was made only for Actions. The host key was read from the server itself.</p>
+          </div>
+          <div>
+            <p class="kolmikko__otsikko">Only on the server</p>
+            <p>The database password, made with <code>openssl rand -hex 24</code> straight into the env file.</p>
+            <p class="pieni">Never in Git, on GitHub or on this page.</p>
+          </div>
+          <div>
+            <p class="kolmikko__otsikko">In the repository</p>
+            <p><code>chatapp.env.example</code> with an empty password.</p>
+            <p class="pieni"><code>.gitignore</code> blocks <code>.env</code>, <code>*.env</code> and SSH key files.</p>
+          </div>
+        </div>
+
+        <h3>Three choices I had to think about</h3>
+        <details class="valinta">
+          <summary>The env file is 600, not 640 like in the course material</summary>
+          <p>Nginx needs the <code>chatapp</code> group to open the socket. With 640 that group could also read the database password. With 600 only root can, and the app still gets the values because systemd reads the file as root before it starts the service.</p>
+        </details>
+        <details class="valinta">
+          <summary>The deploy user has full sudo</summary>
+          <p>I thought about a separate user with a short sudoers list. But the deploy installs the systemd unit from the repository, and whoever can change that file can run anything as root. A short sudo list would only look safer. What protects the server is the separate deploy key (one line to delete from <code>authorized_keys</code>), GitHub secrets, two-factor login on my GitHub account, and deploys only from <code>main</code>.</p>
+        </details>
+        <details class="valinta">
+          <summary>Port 22 is open to everyone</summary>
+          <p>GitHub's runners don't have fixed IP addresses, so the cPouta security group allows SSH from anywhere. The server only accepts key logins, so the open port mostly means that scanners can see it. The other options were a self-hosted runner, or a rule for GitHub's whole published IP list, which is long and keeps changing.</p>
+        </details>
+      </section>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/tung.gif') }}" alt="tung" loading="lazy">
+
+      <!-- ================================================================== -->
+      <h2 id="nginx">Adding /viikko5/ to Nginx</h2>
+      <section>
+        <p class="johdanto">Weeks 1 to 3 share one Nginx site. I didn't replace it. I added two lines by hand, after a backup to <code>~/default.ennen-viikko5</code>:</p>
+<pre class="diff"><span class="kommentti">/etc/nginx/sites-available/default</span>
+ server {
+     listen 80 default_server;
+     root /var/www/html;                        <span class="kommentti"># week 1, week 3</span>
+     location /viikko2/ { proxy_pass http://127.0.0.1:5000/; ... }
+<span class="lisays">+    # Viikko 5: chat app (deploy.sh updates the snippet)</span>
+<span class="lisays">+    include snippets/chatapp.conf;</span>
+ }</pre>
+
+        <p>The snippet comes from <a href="https://github.com/Astrlol/Linuxkurssi-chat/blob/main/deploy/nginx/chatapp.conf"><code>deploy/nginx/chatapp.conf</code></a> and only has three <code>location</code> blocks:</p>
+        <table class="reitit">
+          <tr><th>Request</th><th>What Nginx does</th></tr>
+          <tr><td><code>/viikko5</code></td><td>Redirects to <code>/viikko5/</code></td></tr>
+          <tr><td><code>/viikko5/static/…</code></td><td>Serves the file from disk with <code>alias</code>, Flask is not involved</td></tr>
+          <tr><td><code>/viikko5/…</code></td><td>Sends it to the socket without the prefix. <code>X-Forwarded-Prefix</code> lets Flask build links that start with <code>/viikko5</code>.</td></tr>
+        </table>
+        <p class="pieni"><code>^~</code> on the locations means the site's regex locations are never tried for these paths. Every deploy runs <code>nginx -t</code> before reloading and restores the previous snippet if the test fails, so a mistake in this file can't take weeks 1 to 4 down.</p>
+      </section>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/kumalala.gif') }}" alt="guts" loading="lazy">
+
+      <!-- ================================================================== -->
+      <h2 id="malli">Picking the model</h2>
+      <section>
+        <p class="johdanto">Server A: 4 vCPUs, 7.6 GiB memory, 77 GB disk, no GPU. I asked three models the same question in English and in Finnish with <code>ollama run --verbose</code>.</p>
+
+        <div class="palkit">
+          <div class="palkki-rivi">
+            <code>gemma3:1b</code>
+            <div class="palkki"><i style="width: 100%"></i></div>
+            <span class="luku">31.6 tok/s</span>
+            <span class="fi huono">Finnish: didn't answer</span>
+          </div>
+          <div class="palkki-rivi">
+            <code>qwen3.5:0.8b</code>
+            <div class="palkki palkki--tyhja"><span>stuck in a loop</span></div>
+            <span class="luku">–</span>
+            <span class="fi huono">unusable</span>
+          </div>
+          <div class="palkki-rivi valittu">
+            <code>gemma3:4b</code>
+            <div class="palkki"><i style="width: 37%"></i></div>
+            <span class="luku">11.6 tok/s</span>
+            <span class="fi hyva">Finnish: good</span>
+          </div>
+        </div>
+
+        <p>I picked <code>gemma3:4b</code>. The assignment suggests 1B or less, but most students here write in Finnish and the small models couldn't. Eleven tokens a second is about reading speed when the reply streams.</p>
+
+        <h3>With the model loaded</h3>
+        <div class="mittari">
+          <p>Memory <span class="pieni">7.6 GiB</span></p>
+          <div class="pino"><i class="kaytossa" style="width: 59%">used 4.5</i><i class="vapaa" style="width: 41%">available 3.1</i></div>
+        </div>
+        <div class="mittari">
+          <p>Disk <span class="pieni">77 GB</span></p>
+          <div class="pino"><i class="kaytossa" style="width: 12%">9.0</i><i class="vapaa" style="width: 88%">68 GB free</i></div>
+        </div>
+        <p class="pieni">The model is 3.4 GB. No swap was needed. Ollama keeps the model in memory for 5 minutes after the last message (its default), so the first reply after a pause waits about 20 seconds (<code>load duration: 18.79s</code>), longer right after a reboot.</p>
+      </section>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/jump.gif') }}" alt="hamsteri" loading="lazy">
+
+      <!-- ================================================================== -->
+      <h2 id="tietokanta">Database and replication</h2>
+      <section>
+        <p class="johdanto"><strong>MySQL, not MariaDB.</strong> Server A already runs MySQL 8.4 for week 2 and as the source of week 4's replication. Installing <code>mariadb-server</code> would remove <code>mysql-server</code> and break both. The app uses PyMySQL, which talks to either, so the chat got its own database in the MySQL that was already there.</p>
+
+        <div class="replika">
+          <div class="replika__rivi">
+            <code>laskuri</code>
+            <span class="kone">A</span>
+            <span class="viiva viiva--ok"></span>
+            <span class="kone">B</span>
+            <span class="tulos ok">replicated, week 4</span>
+          </div>
+          <div class="replika__rivi">
+            <code>chatapp</code>
+            <span class="kone">A</span>
+            <span class="viiva viiva--stop"><b>✗</b></span>
+            <span class="kone kone--haalea">B</span>
+            <span class="tulos stop">stays on A</span>
+          </div>
+        </div>
+        <p>Before creating the database I added one line to B's <code>replikointi.cnf</code>:</p>
+        <pre>replicate-wild-ignore-table = chatapp.%</pre>
+        <p>The messages are private chats, and B is only there to show the week 4 counter. After the change B listed only <code>laskuri</code> and the system databases, and both replica threads were still <code>Yes</code>.</p>
         <details>
-          <summary>What happens when you press Send</summary>
+          <summary>More details</summary>
           <ul>
-            <li>The browser posts the text to Flask under <code>{{ request.script_root or '/' }}</code>.</li>
-            <li>Flask saves your message in MySQL and reads the earlier messages of the same chat.</li>
-            <li>The whole conversation goes to Ollama, which generates the answer on the server's own hardware.</li>
-            <li>Flask saves the answer and sends it back. <code>app.js</code> adds it to the chat.</li>
-            <li><em>New chat</em> starts a fresh conversation, so the model forgets the old one.</li>
+            <li>I used the <em>wild</em> form because <code>replicate-ignore-db</code> looks at the default database of a statement, so <code>CREATE DATABASE chatapp</code> could have slipped through.</li>
+            <li>The MySQL account <code>chatapp</code> still shows up on B, because accounts live in the <code>mysql</code> system database. It has no database there and B is <code>super_read_only</code>, so it can't do anything.</li>
+            <li>The table is <a href="https://github.com/Astrlol/Linuxkurssi-chat/blob/main/deploy/sql/schema.sql"><code>messages(id, session_id, role, content, created_at)</code></a> with an index on <code>(session_id, id)</code>.</li>
           </ul>
         </details>
       </section>
 
-      <img class="levea" src="{{ url_for('static', filename='gifs/terry.gif') }}" alt="terry" loading="lazy">
+      <img class="levea" src="{{ url_for('static', filename='gifs/steamhappy.gif') }}" alt="" loading="lazy">
 
-      <!-- 3. CI/CD -->
-      <h2><span class="nro">03</span> The pipeline</h2>
+      <!-- ================================================================== -->
+      <h2 id="testit">Test results</h2>
       <section>
-        <div class="putki" aria-hidden="true">
-          <span class="vaihe">git push</span>
-          <span class="vaihe">tests</span>
-          <span class="vaihe">deploy</span>
-          <span class="vaihe">restart</span>
-          <span class="vaihe">live</span>
-        </div>
-
-        <!-- TODO: kirjoita vaiheet oman workflow-tiedostosi mukaan -->
-        <ol class="vaiheet">
-          <li><strong>Push to main</strong>
-              <span>A push to <code>main</code> on GitHub starts the workflow. Nobody copies files by hand.</span></li>
-          <li><strong>Tests</strong>
-              <span>The Python tests run on a clean runner. One failing test stops the pipeline here, before anything reaches the server.</span></li>
-          <li><strong>Deploy</strong>
-              <span>The workflow connects to the server over SSH with its own key and pulls the new code.</span></li>
-          <li><strong>Restart</strong>
-              <span>systemd restarts Gunicorn. Nginx and Ollama keep running.</span></li>
-          <li><strong>Check</strong>
-              <span>A final <code>curl</code> makes sure the page answers with <code>200</code>.</span></li>
-        </ol>
-
-        <div class="huomio">
-          <p class="otsikko">Secrets stay out of the repo</p>
-          <p>The SSH key and the database password are stored as GitHub secrets and in a root-only file on the server.
-             The repository only has an <code>.env.example</code>.</p>
-        </div>
+        <p class="johdanto">All on 27 November 2026, times in UTC like the servers.</p>
+        <ul class="testilista">
+          <li>
+            <span class="lappu pass">PASS</span>
+            <div><strong>Public, and the local model answers</strong>
+              <p>06:14 from my home connection: an English and a Finnish question, both answered by <code>gemma3:4b</code>.</p></div>
+          </li>
+          <li>
+            <span class="lappu pass">PASS</span>
+            <div><strong>Still there after a reload</strong>
+              <p>F5 brought the conversation back from <code>/api/history</code>.</p></div>
+          </li>
+          <li>
+            <span class="lappu pass">PASS</span>
+            <div><strong>A new browser session starts empty</strong>
+              <p>A private window was empty. MySQL had two session ids, <code>b809164e…</code> and <code>7243f3d3…</code>.</p></div>
+          </li>
+          <li>
+            <span class="lappu pass">PASS</span>
+            <div><strong>Ollama and the app can't be reached from outside</strong>
+              <p><code>curl -m 5 http://195.148.20.88:11434/</code> from home timed out. <code>ss -ltnp</code>: Ollama on 127.0.0.1, the chat on a Unix socket, only 22 and 80 public.</p></div>
+          </li>
+          <li>
+            <span class="lappu pass">PASS</span>
+            <div><strong>A push to main deploys</strong>
+              <p><a href="https://github.com/Astrlol/Linuxkurssi-chat/actions/runs/45951788620">Run #4</a> deployed <code>b5858b4</code> and <code>/health</code> returned it. More deploys of different commits are on the <a href="https://github.com/Astrlol/Linuxkurssi-chat/actions">Actions tab</a>.</p></div>
+          </li>
+          <li>
+            <span class="lappu pass">PASS</span>
+            <div><strong>A failing test blocks the deploy</strong>
+              <p><a href="https://github.com/Astrlol/Linuxkurssi-chat/actions/runs/45951605968">Run #3</a>: pytest failed, deploy skipped, <code>/health</code> kept the old SHA. Fixed with <code>git revert</code>.</p></div>
+          </li>
+          <li>
+            <span class="lappu pass">PASS</span>
+            <div><strong>Everything starts after a reboot</strong>
+              <p><code>sudo reboot</code> at 06:28. Six services active without touching anything, socket recreated, same SHA, chat answered.</p></div>
+          </li>
+          <li>
+            <span class="lappu pass">PASS</span>
+            <div><strong>Earlier weeks still work</strong>
+              <p><code>/</code>, <code>/viikko2/</code>, <code>/viikko3/</code> on A and <code>/viikko4/</code> on B after the deploys and the reboot.</p></div>
+          </li>
+        </ul>
+        <p class="pieni">On top of these, 12 unit tests run in CI: input rules, streaming, saved history, Ollama being down, a database error giving 503, and links under the sub-path.</p>
       </section>
 
-      <img class="levea" src="{{ url_for('static', filename='gifs/zoowalk.gif') }}" alt="zoowalk" loading="lazy">
+      <img class="levea" src="{{ url_for('static', filename='gifs/catwalk.gif') }}" alt="" loading="lazy">
 
-      <!-- 4. Test results -->
-      <h2><span class="nro">04</span> Test results</h2>
+      <!-- ================================================================== -->
+      <h2 id="todisteet">Evidence from the server</h2>
       <section>
-        <!-- TODO: vaihda "todo" -> "pass" ja TODO -> PASS kun testi on tehty, ja kirjoita todiste -->
-        <table>
-          <tr><th>Test</th><th>Result</th><th>Evidence</th></tr>
-          <tr><td>Chat answers</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
-          <tr><td>History saved in MySQL</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
-          <tr><td>New chat starts empty</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
-          <tr><td>Empty and too long messages rejected</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
-          <tr><td>Ollama not reachable from outside</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
-          <tr><td>Push to main deploys</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
-          <tr><td>Failing test blocks deploy</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
-          <tr><td>Survives a reboot</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
-        </table>
-        <p class="muted">All times UTC, like the servers (Finnish time is UTC+2, or UTC+3 in summer).</p>
+        <p class="johdanto">Copied from server A on 27 November 2026. Open the one you want to check.</p>
+
+        <details>
+          <summary><code>systemctl status chatapp</code> and <code>systemctl show -p User -p Group</code></summary>
+<pre>● chatapp.service - LLM chat (Flask + Gunicorn)
+     Loaded: loaded (/etc/systemd/system/chatapp.service; enabled; preset: enabled)
+     Active: active (running) since Fri 2026-11-27 06:42:33 UTC; 16s ago
+   Main PID: 2228 (gunicorn)
+      Tasks: 5 (limit: 7955)
+     Memory: 78.7M (peak: 78.7M)
+        CPU: 437ms
+     CGroup: /system.slice/chatapp.service
+             ├─2228 /opt/chatapp/venv/bin/python3 /opt/chatapp/venv/bin/gunicorn --workers 2 --worker-class gthread --threads 8 --timeout 300 --bind unix:/run/chatapp/gunicorn.sock --umask 007 --no-control-socket --access-logfile - app:app
+             ├─2246 /opt/chatapp/venv/bin/python3 /opt/chatapp/venv/bin/gunicorn --workers 2 --worker-class gthread --threads 8 --timeout 300 --bind unix:/run/chatapp/gunicorn.sock --umask 007 --no-control-socket --access-logfile - app:app
+             └─2247 /opt/chatapp/venv/bin/python3 /opt/chatapp/venv/bin/gunicorn --workers 2 --worker-class gthread --threads 8 --timeout 300 --bind unix:/run/chatapp/gunicorn.sock --umask 007 --no-control-socket --access-logfile - app:app
+
+Nov 27 06:42:33 nuuttilinux systemd[1]: Started chatapp.service - LLM chat (Flask + Gunicorn).
+Nov 27 06:42:33 nuuttilinux gunicorn[2228]: [2026-11-27 06:42:33 +0000] [2228] [INFO] Starting gunicorn 27.0.1
+Nov 27 06:42:33 nuuttilinux gunicorn[2228]: [2026-11-27 06:42:33 +0000] [2228] [INFO] Listening at: unix:/run/chatapp/gunicorn.sock (2228)
+Nov 27 06:42:33 nuuttilinux gunicorn[2228]: [2026-11-27 06:42:33 +0000] [2228] [INFO] Using worker: gthread
+Nov 27 06:42:33 nuuttilinux gunicorn[2246]: [2026-11-27 06:42:33 +0000] [2246] [INFO] Booting worker with pid: 2246
+Nov 27 06:42:33 nuuttilinux gunicorn[2247]: [2026-11-27 06:42:33 +0000] [2247] [INFO] Booting worker with pid: 2247
+Nov 27 06:42:35 nuuttilinux gunicorn[2247]:  - - [27/Nov/2026:06:42:35 +0000] "GET /health HTTP/1.1" 200 41 "-" "curl/8.18.0"
+
+$ systemctl show chatapp -p User -p Group
+User=chatapp
+Group=chatapp</pre>
+        </details>
+
+        <details>
+          <summary><code>ls -l</code>: app directory, env file and socket</summary>
+<pre>$ ls -l /opt/chatapp/app
+total 52
+-rw-rw-r-- 1 ubuntu ubuntu   41 Nov 27 06:26 REVISION
+-rw-r--r-- 1 ubuntu ubuntu 4428 Nov 27 06:26 app.py
+-rw-r--r-- 1 ubuntu ubuntu 1911 Nov 27 06:26 db.py
+drwxr-xr-x 5 ubuntu ubuntu 4096 Nov 27 06:26 deploy
+-rw-r--r-- 1 ubuntu ubuntu  149 Nov 27 06:26 pyproject.toml
+-rw-r--r-- 1 ubuntu ubuntu   39 Nov 27 06:26 requirements-dev.txt
+-rw-r--r-- 1 ubuntu ubuntu   77 Nov 27 06:26 requirements.txt
+drwxr-xr-x 2 ubuntu ubuntu 4096 Nov 27 06:26 scripts
+drwxr-xr-x 3 ubuntu ubuntu 4096 Nov 27 06:26 static
+drwxr-xr-x 2 ubuntu ubuntu 4096 Nov 27 06:26 templates
+-rw-r--r-- 1 ubuntu ubuntu 4976 Nov 27 06:26 test_app.py
+
+$ sudo ls -l /etc/chatapp/chatapp.env
+-rw------- 1 root root 198 Nov 27 02:16 /etc/chatapp/chatapp.env
+
+$ ls -l /run/chatapp/
+total 0
+srwxrwx--- 1 chatapp chatapp 0 Nov 27 06:28 gunicorn.sock</pre>
+        </details>
+
+        <details>
+          <summary><code>SHOW GRANTS FOR 'chatapp'@'localhost';</code></summary>
+<pre>+-------------------------------------------------------------+
+| Grants for chatapp@localhost                                |
++-------------------------------------------------------------+
+| GRANT USAGE ON *.* TO `chatapp`@`localhost`                 |
+| GRANT SELECT, INSERT ON `chatapp`.* TO `chatapp`@`localhost` |
++-------------------------------------------------------------+</pre>
+        </details>
+
+        <details>
+          <summary><code>ollama list</code>, <code>free -h</code>, <code>df -h /</code> with the model loaded</summary>
+<pre>$ ollama list
+NAME         ID              SIZE      MODIFIED
+gemma3:4b    68ceab7e468a    3.4 GB    22 hours ago
+
+$ free -h
+               total        used        free      shared  buff/cache   available
+Mem:           7.6Gi       4.5Gi       185Mi       4.1Mi       3.1Gi       3.1Gi
+Swap:             0B          0B          0B
+
+$ df -h /
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1        77G  9.0G   68G  12% /</pre>
+        </details>
+
+        <details>
+          <summary><code>sudo ss -ltnp</code>: Ollama and the app only on localhost</summary>
+<pre>State   Recv-Q  Send-Q   Local Address:Port   Peer Address:Port  Process
+LISTEN  0       512          127.0.0.1:34815       0.0.0.0:*      users:(("llama-server",pid=1561,fd=3))
+LISTEN  0       4096           0.0.0.0:22          0.0.0.0:*      users:(("sshd",pid=960,fd=3),("systemd",pid=1,fd=108))
+LISTEN  0       511            0.0.0.0:80          0.0.0.0:*      users:(("nginx",pid=1009,fd=5),("nginx",pid=1008,fd=5),("nginx",pid=1007,fd=5),("nginx",pid=1006,fd=5),("nginx",pid=1005,fd=5))
+LISTEN  0       4096     127.0.0.53%lo:53          0.0.0.0:*      users:(("systemd-resolve",pid=520,fd=17))
+LISTEN  0       2048         127.0.0.1:5000        0.0.0.0:*      users:(("gunicorn",pid=1453,fd=3),("gunicorn",pid=1447,fd=3))
+LISTEN  0       151       192.168.1.33:3306        0.0.0.0:*      users:(("mysqld",pid=1144,fd=36))
+LISTEN  0       70           127.0.0.1:33060       0.0.0.0:*      users:(("mysqld",pid=1144,fd=31))
+LISTEN  0       4096        127.0.0.54:53          0.0.0.0:*      users:(("systemd-resolve",pid=520,fd=19))
+LISTEN  0       151          127.0.0.1:3306        0.0.0.0:*      users:(("mysqld",pid=1144,fd=34))
+LISTEN  0       4096         127.0.0.1:11434       0.0.0.0:*      users:(("ollama",pid=922,fd=4))
+LISTEN  0       4096              [::]:22             [::]:*      users:(("sshd",pid=960,fd=4),("systemd",pid=1,fd=109))
+LISTEN  0       511               [::]:80             [::]:*      users:(("nginx",pid=1009,fd=6),("nginx",pid=1008,fd=6),("nginx",pid=1007,fd=6),("nginx",pid=1006,fd=6),("nginx",pid=1005,fd=6))</pre>
+          <ul>
+            <li><code>127.0.0.1:11434</code> is Ollama, <code>127.0.0.1:34815</code> its model runner. Both local only.</li>
+            <li>The chat has no line here, because it listens on the Unix socket.</li>
+            <li><code>127.0.0.1:5000</code> is the week 2 counter, which is why the chat couldn't use that port.</li>
+            <li><code>192.168.1.33:3306</code> is MySQL on the private network for the week 4 replication.</li>
+          </ul>
+        </details>
       </section>
 
-      <img class="levea" src="{{ url_for('static', filename='gifs/appeal.gif') }}" alt="appeal" loading="lazy">
+      <img class="levea" src="{{ url_for('static', filename='gifs/guts.gif') }}" alt="" loading="lazy">
 
-      <!-- 5. Problem solved -->
-      <h2><span class="nro">05</span> Problem I solved</h2>
+      <!-- ================================================================== -->
+      <h2 id="ongelma">Problem I solved</h2>
       <section>
-        <!-- TODO: kirjoita oma ongelma -->
-        <div class="ongelma">
-          <div class="avain">Problem</div>
-          <div>…</div>
-          <div class="avain">Cause</div>
-          <div>…</div>
-          <div class="avain">Fix</div>
-          <div>…</div>
-          <div class="avain">Lesson</div>
-          <div>…</div>
-        </div>
+        <p class="johdanto">The chat worked fine, but every start left this in the log:</p>
+        <pre class="loki">[ERROR] Control server error: [Errno 13] Permission denied: '/home/chatapp'</pre>
+
+        <dl class="ongelma">
+          <dt>Cause</dt>
+          <dd>Gunicorn 25.1 added a control socket that goes to <code>$HOME/.gunicorn/</code> by default. My <code>requirements.txt</code> said only <code>gunicorn&gt;=23</code>, so the server got 27.0.1. The service user has no home, and <code>ProtectHome=true</code> hides <code>/home</code> anyway.</dd>
+          <dt>Fix</dt>
+          <dd>I don't use the control tool, so I switched it off in the unit and let the pipeline deploy it:</dd>
+        </dl>
+<pre class="diff"><span class="kommentti">deploy/systemd/chatapp.service</span>
+ ExecStart=/opt/chatapp/venv/bin/gunicorn \
+     --workers 2 --worker-class gthread --threads 8 \
+     --timeout 300 \
+     --bind unix:/run/chatapp/gunicorn.sock --umask 007 \
+<span class="lisays">+    --no-control-socket \</span>
+     --access-logfile - \
+     app:app</pre>
+        <p><strong>Lesson:</strong> read the logs even when everything works. A version range with no upper limit can bring new defaults that clash with the hardening.</p>
+        <p class="pieni">A smaller one: I first put the <code>include</code> line inside <code>location = /viikko2</code>. <code>nginx -t</code> passed only because the snippet was still empty. It would have failed on the first deploy, so I moved it to the <code>server</code> level.</p>
       </section>
 
-      <img class="levea" src="{{ url_for('static', filename='gifs/wakeup.gif') }}" alt="wakeup" loading="lazy">
+      <img class="levea" src="{{ url_for('static', filename='gifs/greek.gif') }}" alt="greek" loading="lazy">
 
       <p class="keskella">
-        <a class="github-linkki" href="https://github.com/Astrlol/linuxkurssi-chat">
+        <a class="github-linkki" href="https://github.com/Astrlol/Linuxkurssi-chat">
           <img src="{{ url_for('static', filename='github.png') }}" alt="">
           Source code on GitHub
         </a>
       </p>
-
-      <div class="gif-pari">
-        <img src="{{ url_for('static', filename='gifs/nahwin.gif') }}" alt="nahwin" loading="lazy">
-        <img src="{{ url_for('static', filename='gifs/nonii.gif') }}" alt="nonii" loading="lazy">
-      </div>
+      <img class="levea" src="{{ url_for('static', filename='gifs/silence.gif') }}" alt="silence" loading="lazy">
     </main>
 
     <aside class="sivupalkki">
-      <img src="{{ url_for('static', filename='gifs/sigma.gif') }}" alt="sigma">
+      <img src="{{ url_for('static', filename='gifs/lovexlight.gif') }}" alt="">
     </aside>
   </div>
 
@@ -230,56 +560,82 @@
 
   <script src="{{ url_for('static', filename='app.js') }}"></script>
   <script>
-    // Page extras only (character counter, auto-height, suggestion buttons).
-    // Chat logic stays in app.js; nothing here sends messages.
+    // Page extras only: running commit, session id, counter, textarea height,
+    // example buttons and the request path diagram. The chat itself is in app.js.
     (function () {
-      var ta = document.getElementById('message');
-      var form = document.getElementById('chat-form');
-      var list = document.getElementById('messages');
-      var count = document.getElementById('merkkimaara');
-      var chips = document.getElementById('ehdotukset');
-      if (!ta) return;
+      var base = document.body.dataset.base || "";
+      var ta = document.getElementById("message");
+      var form = document.getElementById("chat-form");
+      var list = document.getElementById("messages");
+      var count = document.getElementById("merkkimaara");
+      var examples = document.getElementById("ehdotukset");
+      var sessionEl = document.getElementById("sessio");
+      var commitEl = document.getElementById("commit");
       var max = ta.maxLength > 0 ? ta.maxLength : 2000;
 
+      // Which commit is running: /health returns the SHA written by the deploy.
+      fetch(base + "/health")
+        .then(function (r) { return r.ok ? r.text() : ""; })
+        .then(function (text) {
+          var sha = text.trim();
+          if (/^[0-9a-f]{40}$/.test(sha)) {
+            var a = document.createElement("a");
+            a.href = "https://github.com/Astrlol/Linuxkurssi-chat/commit/" + sha;
+            a.textContent = sha.slice(0, 7);
+            commitEl.replaceChildren(a);
+          } else {
+            commitEl.textContent = "local (not deployed)";
+          }
+        })
+        .catch(function () { commitEl.textContent = "unknown"; });
+
+      // Show the session id that app.js keeps in localStorage.
+      function showSession() {
+        var id = "";
+        try { id = localStorage.getItem("viikko5_chat_session_id") || ""; } catch (e) { id = ""; }
+        sessionEl.textContent = id ? id.slice(0, 8) : "in memory";
+      }
+
       function update() {
-        ta.style.height = 'auto';
-        ta.style.height = Math.min(ta.scrollHeight + 2, 200) + 'px';
-        if (count) {
-          count.textContent = ta.value.length + ' / ' + max;
-          count.classList.toggle('lahella', ta.value.length > max * 0.9);
-        }
+        ta.style.height = "auto";
+        ta.style.height = Math.min(ta.scrollHeight + 2, 200) + "px";
+        count.textContent = ta.value.length + "/" + max;
+        count.classList.toggle("lahella", ta.value.length > max * 0.9);
       }
 
-      function hasMessages() {
-        if (!list) return false;
-        for (var i = 0; i < list.children.length; i++) {
-          var el = list.children[i];
-          if (el.id !== 'empty-hint' && !el.classList.contains('chat__empty')) return true;
-        }
-        return false;
-      }
+      ta.addEventListener("input", update);
+      form.addEventListener("submit", function () { setTimeout(update, 0); });
 
-      ta.addEventListener('input', update);
-      if (form) form.addEventListener('submit', function () { setTimeout(update, 0); });
+      // app.js handles the click first and makes the new id, then this runs.
+      document.getElementById("new-chat").addEventListener("click", showSession);
 
-      if (list && 'MutationObserver' in window) {
-        new MutationObserver(function () {
-          if (chips) chips.hidden = hasMessages();
-          update();
-        }).observe(list, { childList: true });
-      }
+      function hasMessages() { return list.querySelector(".msg") !== null; }
+      new MutationObserver(function () { examples.hidden = hasMessages(); })
+        .observe(list, { childList: true });
 
-      if (chips) {
-        chips.hidden = hasMessages();
-        chips.addEventListener('click', function (e) {
-          var btn = e.target.closest('.ehdotus');
-          if (!btn) return;
-          ta.value = btn.textContent.trim();
-          ta.dispatchEvent(new Event('input', { bubbles: true }));
-          ta.focus();
+      examples.addEventListener("click", function (e) {
+        var btn = e.target.closest(".ehdotus");
+        if (!btn) return;
+        ta.value = btn.textContent.trim();
+        update();
+        ta.focus();
+      });
+
+      // Request path: the chosen step lights up its part of the diagram.
+      var diagram = document.getElementById("kaavio");
+      var steps = document.querySelectorAll("#reitti button");
+      function choose(btn) {
+        var parts = btn.dataset.osat.split(" ");
+        steps.forEach(function (b) { b.setAttribute("aria-pressed", b === btn ? "true" : "false"); });
+        diagram.querySelectorAll("[data-osa]").forEach(function (el) {
+          el.classList.toggle("paalla", parts.indexOf(el.dataset.osa) !== -1);
         });
       }
+      steps.forEach(function (b) { b.addEventListener("click", function () { choose(b); }); });
+      if (steps.length) { diagram.classList.add("valittava"); choose(steps[0]); }
 
+      examples.hidden = hasMessages();
+      showSession();
       update();
     })();
   </script>
