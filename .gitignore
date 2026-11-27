@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Salaisuudet ja ympäristömuuttujat
+.env
+*.env
+
+# Deployn kirjoittama versiotiedosto (vain palvelimella)
+REVISION
+
+# Editorit
+.vscode/
+.idea/
+
+# SSH-avaimet eivät kuulu repoon
+cpouta_deploy
+cpouta_deploy.pub
+*.pem
+id_rsa*
+id_ed25519*

@@ -1,0 +1,6 @@
+# Rivinvaihdot pysyvät Linux-muodossa (LF) repossa ja palvelimella.
+# Ilman tätä Windowsilla tehty bash-skripti voi kaatua virheeseen "$'\r': command not found".
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
