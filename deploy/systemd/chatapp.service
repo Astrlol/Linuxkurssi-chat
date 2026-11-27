@@ -16,6 +16,7 @@ ExecStart=/opt/chatapp/venv/bin/gunicorn \
     --workers 2 --worker-class gthread --threads 8 \
     --timeout 300 \
     --bind unix:/run/chatapp/gunicorn.sock --umask 007 \
+    --no-control-socket \
     --access-logfile - \
     app:app
 Restart=on-failure

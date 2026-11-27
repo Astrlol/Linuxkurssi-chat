@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
           cache: pip
@@ -83,4 +83,3 @@ jobs:
           # Static files from the sub-path (Nginx alias)
           curl -fsS -o /dev/null "http://$HOST/viikko5/static/app.js"
           echo "The app answers at http://$HOST/viikko5/"
-          
