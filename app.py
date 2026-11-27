@@ -66,8 +66,8 @@ def chat():
 
     if not SESSION_RE.match(session_id):
         return jsonify(error="Invalid session_id"), 400
-    if not message:
-        return jsonify(error="Message is missing"), 400
+    # if not message:
+     #   return jsonify(error="Message is missing"), 400
     if len(message) > MAX_MESSAGE_LEN:
         return jsonify(error=f"Message is too long (max {MAX_MESSAGE_LEN} characters)"), 400
 
