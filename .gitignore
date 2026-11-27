@@ -23,3 +23,7 @@ cpouta_deploy.pub
 *.pem
 id_rsa*
 id_ed25519*
+
+# Gifit ja esikatselu
+static/gifs/
+esikatselu.html

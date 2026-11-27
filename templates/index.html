@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Week 5 – LLM chat (CI/CD)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<!-- data-base = the sub-path (e.g. /viikko5) that app.js uses for API calls -->
+<body data-base="{{ request.script_root }}">
+  <div class="asettelu">
+    <aside class="sivupalkki">
+      <img src="{{ url_for('static', filename='gifs/Tyyli.gif') }}" alt="Tyyli">
+    </aside>
+
+    <main class="sisalto">
+      <h1>Week 5: Gigachad learns to talk</h1>
+      <p class="muted">A self-hosted language model · Nginx → Gunicorn/Flask → Ollama · MySQL · deployed by CI/CD</p>
+
+      <div class="merkit">
+        <span class="merkki malli">Model: {{ model }}</span>
+        <span class="merkki live">Self-hosted</span>
+        <span class="merkki info">CI/CD</span>
+      </div>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/steamhappy.gif') }}" alt="steamhappy">
+
+      <!-- 1. Chat -->
+      <h2><span class="nro">01</span> Talk to it</h2>
+
+      <div class="chat">
+        <header class="chat__header">
+          <div class="chat__otsikko">
+            <span class="valo" aria-hidden="true"></span>
+            <div>
+              <p class="chat__nimi">LLM chat</p>
+              <p class="chat__meta">Model: <code>{{ model }}</code> · Nginx → Gunicorn/Flask → Ollama · MySQL</p>
+            </div>
+          </div>
+          <button type="button" id="new-chat" class="btn btn--ghost">New chat</button>
+        </header>
+
+        <section id="messages" class="chat__messages" aria-live="polite">
+          <p class="chat__empty" id="empty-hint">Type a message below to start the conversation.</p>
+        </section>
+
+        <div class="ehdotukset" id="ehdotukset">
+          <span class="ehdotukset__otsake">Try</span>
+          <button type="button" class="ehdotus">Explain MySQL replication like I'm five</button>
+          <button type="button" class="ehdotus">Write a cron line that runs every hour at :15</button>
+          <button type="button" class="ehdotus">Gigachad or Ryan Gosling, who wins?</button>
+          <button type="button" class="ehdotus">Tell me a Linux joke</button>
+        </div>
+
+        <form id="chat-form" class="chat__form" autocomplete="off">
+          <textarea id="message" name="message" rows="2" maxlength="2000"
+                    placeholder="Type a message… (Enter sends, Shift+Enter adds a new line)" required></textarea>
+          <button type="submit" id="send" class="btn">Send</button>
+        </form>
+
+        <div class="chat__ala">
+          <span><kbd>Enter</kbd> send · <kbd>Shift</kbd> + <kbd>Enter</kbd> new line</span>
+          <span id="merkkimaara">0 / 2000</span>
+        </div>
+      </div>
+
+      <div class="ruudut">
+        <div class="ruutu">
+          <div class="otsake">Model</div>
+          <div class="arvo malli">{{ model }}</div>
+        </div>
+        <div class="ruutu">
+          <div class="otsake">Inference</div>
+          <div class="arvo hyva">Local · Ollama</div>
+        </div>
+        <div class="ruutu">
+          <div class="otsake">Max message</div>
+          <div class="arvo">2000 chars</div>
+        </div>
+        <div class="ruutu">
+          <div class="otsake">History</div>
+          <div class="arvo">MySQL</div>
+        </div>
+      </div>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/chatgpt.gif') }}" alt="chatgpt" loading="lazy">
+
+      <!-- 2. Request flow -->
+      <h2><span class="nro">02</span> How a message travels</h2>
+      <section>
+        <!-- TODO: tarkista että kuvaukset vastaavat omaa palvelintasi -->
+        <div class="virta">
+          <div class="solmu s-selain">
+            <div class="nimi">Browser</div>
+            <p><code>app.js</code> sends your message with <code>fetch()</code></p>
+          </div>
+          <div class="virta__nuoli n1"><span class="nuoli">→</span>HTTP :80</div>
+          <div class="solmu s-nginx">
+            <div class="nimi">Nginx</div>
+            <p>Public entry. Proxies <code>/viikko5/</code> to Gunicorn</p>
+          </div>
+          <div class="virta__nuoli n2"><span class="nuoli">→</span>proxy</div>
+          <div class="solmu s-flask">
+            <div class="nimi">Gunicorn + Flask</div>
+            <p>Builds the prompt from the conversation and calls the model</p>
+          </div>
+          <div class="virta__nuoli n3"><span class="nuoli">→</span>API</div>
+          <div class="solmu s-ollama">
+            <div class="nimi">Ollama</div>
+            <p>Runs <code>{{ model }}</code> on this server, not open to the internet</p>
+          </div>
+          <div class="virta__nuoli n4"><span class="nuoli pysty">↕</span>history</div>
+          <div class="solmu s-mysql">
+            <div class="nimi">MySQL</div>
+            <p>Stores the conversation, so it survives a reload</p>
+          </div>
+        </div>
+
+        <details>
+          <summary>What happens when you press Send</summary>
+          <ul>
+            <li>The browser posts the text to Flask under <code>{{ request.script_root or '/' }}</code>.</li>
+            <li>Flask saves your message in MySQL and reads the earlier messages of the same chat.</li>
+            <li>The whole conversation goes to Ollama, which generates the answer on the server's own hardware.</li>
+            <li>Flask saves the answer and sends it back. <code>app.js</code> adds it to the chat.</li>
+            <li><em>New chat</em> starts a fresh conversation, so the model forgets the old one.</li>
+          </ul>
+        </details>
+      </section>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/terry.gif') }}" alt="terry" loading="lazy">
+
+      <!-- 3. CI/CD -->
+      <h2><span class="nro">03</span> The pipeline</h2>
+      <section>
+        <div class="putki" aria-hidden="true">
+          <span class="vaihe">git push</span>
+          <span class="vaihe">tests</span>
+          <span class="vaihe">deploy</span>
+          <span class="vaihe">restart</span>
+          <span class="vaihe">live</span>
+        </div>
+
+        <!-- TODO: kirjoita vaiheet oman workflow-tiedostosi mukaan -->
+        <ol class="vaiheet">
+          <li><strong>Push to main</strong>
+              <span>A push to <code>main</code> on GitHub starts the workflow. Nobody copies files by hand.</span></li>
+          <li><strong>Tests</strong>
+              <span>The Python tests run on a clean runner. One failing test stops the pipeline here, before anything reaches the server.</span></li>
+          <li><strong>Deploy</strong>
+              <span>The workflow connects to the server over SSH with its own key and pulls the new code.</span></li>
+          <li><strong>Restart</strong>
+              <span>systemd restarts Gunicorn. Nginx and Ollama keep running.</span></li>
+          <li><strong>Check</strong>
+              <span>A final <code>curl</code> makes sure the page answers with <code>200</code>.</span></li>
+        </ol>
+
+        <div class="huomio">
+          <p class="otsikko">Secrets stay out of the repo</p>
+          <p>The SSH key and the database password are stored as GitHub secrets and in a root-only file on the server.
+             The repository only has an <code>.env.example</code>.</p>
+        </div>
+      </section>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/zoowalk.gif') }}" alt="zoowalk" loading="lazy">
+
+      <!-- 4. Test results -->
+      <h2><span class="nro">04</span> Test results</h2>
+      <section>
+        <!-- TODO: vaihda "todo" -> "pass" ja TODO -> PASS kun testi on tehty, ja kirjoita todiste -->
+        <table>
+          <tr><th>Test</th><th>Result</th><th>Evidence</th></tr>
+          <tr><td>Chat answers</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
+          <tr><td>History saved in MySQL</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
+          <tr><td>New chat starts empty</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
+          <tr><td>Empty and too long messages rejected</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
+          <tr><td>Ollama not reachable from outside</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
+          <tr><td>Push to main deploys</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
+          <tr><td>Failing test blocks deploy</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
+          <tr><td>Survives a reboot</td><td><span class="lappu todo">TODO</span></td><td>–</td></tr>
+        </table>
+        <p class="muted">All times UTC, like the servers (Finnish time is UTC+2, or UTC+3 in summer).</p>
+      </section>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/appeal.gif') }}" alt="appeal" loading="lazy">
+
+      <!-- 5. Problem solved -->
+      <h2><span class="nro">05</span> Problem I solved</h2>
+      <section>
+        <!-- TODO: kirjoita oma ongelma -->
+        <div class="ongelma">
+          <div class="avain">Problem</div>
+          <div>…</div>
+          <div class="avain">Cause</div>
+          <div>…</div>
+          <div class="avain">Fix</div>
+          <div>…</div>
+          <div class="avain">Lesson</div>
+          <div>…</div>
+        </div>
+      </section>
+
+      <img class="levea" src="{{ url_for('static', filename='gifs/wakeup.gif') }}" alt="wakeup" loading="lazy">
+
+      <p class="keskella">
+        <a class="github-linkki" href="https://github.com/Astrlol/linuxkurssi">
+          <img src="{{ url_for('static', filename='github.png') }}" alt="">
+          Source code on GitHub
+        </a>
+      </p>
+
+      <div class="gif-pari">
+        <img src="{{ url_for('static', filename='gifs/nahwin.gif') }}" alt="nahwin" loading="lazy">
+        <img src="{{ url_for('static', filename='gifs/nonii.gif') }}" alt="nonii" loading="lazy">
+      </div>
+    </main>
+
+    <aside class="sivupalkki">
+      <img src="{{ url_for('static', filename='gifs/sigma.gif') }}" alt="sigma">
+    </aside>
+  </div>
+
+  <nav class="valikko">
+    <a href="http://195.148.20.88/">Viikko 1</a>
+    <a href="http://195.148.20.88/viikko2/">Viikko 2</a>
+    <a href="http://195.148.20.88/viikko3/">Viikko 3</a>
+    <a href="http://86.50.20.212/viikko4/">Viikko 4</a>
+    <a href="{{ request.script_root }}/" aria-current="page">Viikko 5</a>
+  </nav>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script>
+    // Page extras only (character counter, auto-height, suggestion buttons).
+    // Chat logic stays in app.js; nothing here sends messages.
+    (function () {
+      var ta = document.getElementById('message');
+      var form = document.getElementById('chat-form');
+      var list = document.getElementById('messages');
+      var count = document.getElementById('merkkimaara');
+      var chips = document.getElementById('ehdotukset');
+      if (!ta) return;
+      var max = ta.maxLength > 0 ? ta.maxLength : 2000;
+
+      function update() {
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight + 2, 200) + 'px';
+        if (count) {
+          count.textContent = ta.value.length + ' / ' + max;
+          count.classList.toggle('lahella', ta.value.length > max * 0.9);
+        }
+      }
+
+      function hasMessages() {
+        if (!list) return false;
+        for (var i = 0; i < list.children.length; i++) {
+          var el = list.children[i];
+          if (el.id !== 'empty-hint' && !el.classList.contains('chat__empty')) return true;
+        }
+        return false;
+      }
+
+      ta.addEventListener('input', update);
+      if (form) form.addEventListener('submit', function () { setTimeout(update, 0); });
+
+      if (list && 'MutationObserver' in window) {
+        new MutationObserver(function () {
+          if (chips) chips.hidden = hasMessages();
+          update();
+        }).observe(list, { childList: true });
+      }
+
+      if (chips) {
+        chips.hidden = hasMessages();
+        chips.addEventListener('click', function (e) {
+          var btn = e.target.closest('.ehdotus');
+          if (!btn) return;
+          ta.value = btn.textContent.trim();
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+          ta.focus();
+        });
+      }
+
+      update();
+    })();
+  </script>
+</body>
+</html>
